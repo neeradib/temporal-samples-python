@@ -7,6 +7,7 @@ from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
 from temporalio import workflow
+from dsl.conditions import evaluate_condition
 
 
 @dataclass
@@ -47,7 +48,38 @@ class Parallel:
     branches: List[Statement]
 
 
-Statement = Union[ActivityStatement, SequenceStatement, ParallelStatement]
+@dataclass
+class Condition:
+    var: str
+    op: str = "truthy"  # Supported: truthy, eq, ne, lt, gt, le, ge, in, contains
+    value: Any | None = None
+
+
+@dataclass
+class IfCase:
+    condition: Condition
+    then: "Statement"
+
+
+@dataclass
+class IfBlock:
+    cases: List[IfCase]
+    # Trailing underscore so YAML key "else" maps via field_name_transformer
+    else_: Optional["Statement"] = None
+
+
+@dataclass
+class IfStatement:
+    # Trailing underscore so YAML key "if" maps via field_name_transformer
+    if_: IfBlock
+
+
+Statement = Union[
+    ActivityStatement,
+    SequenceStatement,
+    ParallelStatement,
+    IfStatement,
+]
 
 
 @workflow.defn
@@ -83,3 +115,17 @@ class DSLWorkflow:
             await asyncio.gather(
                 *[self.execute_statement(branch) for branch in stmt.parallel.branches]
             )
+        elif isinstance(stmt, IfStatement):
+            # Evaluate cases in order (if/elif semantics). Execute first match.
+            for case in stmt.if_.cases:
+                if evaluate_condition(
+                    variables=self.variables,
+                    var=case.condition.var,
+                    op=case.condition.op,
+                    value=case.condition.value,
+                ):
+                    await self.execute_statement(case.then)
+                    return
+            # No case matched; execute else if present
+            if stmt.if_.else_ is not None:
+                await self.execute_statement(stmt.if_.else_)

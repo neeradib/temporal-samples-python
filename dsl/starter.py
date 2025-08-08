@@ -8,12 +8,15 @@ import yaml
 from temporalio.client import Client
 
 from dsl.workflow import DSLInput, DSLWorkflow
+from dsl.yaml_helpers import normalize_if_else_keys
 
 
 async def main(dsl_yaml: str) -> None:
     # Convert the YAML to our dataclass structure. We use PyYAML + dacite to do
     # this but it can be done any number of ways.
-    dsl_input = dacite.from_dict(DSLInput, yaml.safe_load(dsl_yaml))
+    loaded = yaml.safe_load(dsl_yaml)
+    normalized = normalize_if_else_keys(loaded)
+    dsl_input = dacite.from_dict(DSLInput, normalized)
 
     # Connect client
     client = await Client.connect("localhost:7233")

@@ -1,0 +1,62 @@
+# Demonstrates conditional branching (if/elif/else) in the DSL.
+#
+# Logic:
+# 1) activity1(result -> result1)
+# 2) if result1 is truthy: activity2(result1) -> result2
+#    elif mode == "alt": activity4(result1) -> result4
+#    else: activity5(arg3, result1) -> result5
+# 3) Finally combine whichever result is available with arg2 via activity3
+
+variables:
+  arg1: value1
+  arg2: value2
+  arg3: value3
+  mode: alt  # try changing to something else or remove result1 to test branches
+
+root:
+  sequence:
+    elements:
+      - activity:
+          name: activity1
+          arguments:
+            - arg1
+          result: result1
+      - if:
+          cases:
+            - condition: { var: result1, op: truthy }
+              then:
+                activity:
+                  name: activity2
+                  arguments: [result1]
+                  result: result2
+            - condition: { var: mode, op: eq, value: alt }
+              then:
+                activity:
+                  name: activity4
+                  arguments: [result1]
+                  result: result4
+          else:
+            activity:
+              name: activity5
+              arguments: [arg3, result1]
+              result: result5
+      - if:
+          cases:
+            - condition: { var: result1, op: truthy }
+              then:
+                activity:
+                  name: activity3
+                  arguments: [arg1, result2]
+                  result: combined
+            - condition: { var: arg2, op: truthy }
+              then:
+                activity:
+                  name: activity3
+                  arguments: [arg2, result4]
+                  result: combined
+          else:
+            activity:
+              name: activity3
+              arguments: [arg3, result5]
+              result: combined
+
