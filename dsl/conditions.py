@@ -43,4 +43,35 @@ def evaluate_condition(
     # Unknown operator
     return False
 
+def evaluate_condition_node(variables: Dict[str, Any], node: Any) -> bool:
+    """
+    Evaluate a condition node which can be either a leaf comparison or a
+    composed boolean (all/any/not). Uses duck-typing to avoid import cycles.
+    """
+    # Leaf: has var/op/value
+    if hasattr(node, "var"):
+        return evaluate_condition(
+            variables=variables,
+            var=getattr(node, "var"),
+            op=getattr(node, "op", "truthy"),
+            value=getattr(node, "value", None),
+        )
+
+    # all: list of child nodes
+    if hasattr(node, "all"):
+        children = getattr(node, "all") or []
+        return all(evaluate_condition_node(variables, child) for child in children)
+
+    # any: list of child nodes
+    if hasattr(node, "any"):
+        children = getattr(node, "any") or []
+        return any(evaluate_condition_node(variables, child) for child in children)
+
+    # not_: single child node
+    if hasattr(node, "not_"):
+        child = getattr(node, "not_")
+        return not evaluate_condition_node(variables, child)
+
+    # Unknown node
+    return False
 

@@ -7,7 +7,7 @@ from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
 from temporalio import workflow
-from dsl.conditions import evaluate_condition
+from dsl.conditions import evaluate_condition_node
 
 
 @dataclass
@@ -57,21 +57,41 @@ class Condition:
 
 @dataclass
 class IfCase:
-    condition: Condition
+    condition: "ConditionNode"
     then: "Statement"
 
 
 @dataclass
 class IfBlock:
-    cases: List[IfCase]
+    clauses: List[IfCase]
     # Trailing underscore so YAML key "else" maps via field_name_transformer
     else_: Optional["Statement"] = None
 
 
 @dataclass
 class IfStatement:
-    # Trailing underscore so YAML key "if" maps via field_name_transformer
-    if_: IfBlock
+    # Use explicit name to reflect ladder semantics
+    if_ladder: IfBlock
+
+
+# Boolean condition composition
+@dataclass
+class AllCondition:
+    all: List["ConditionNode"]
+
+
+@dataclass
+class AnyCondition:
+    any: List["ConditionNode"]
+
+
+@dataclass
+class NotCondition:
+    # Trailing underscore so YAML key "not" maps via field_name_transformer
+    not_: "ConditionNode"
+
+
+ConditionNode = Union[Condition, AllCondition, AnyCondition, NotCondition]
 
 
 Statement = Union[
@@ -116,16 +136,10 @@ class DSLWorkflow:
                 *[self.execute_statement(branch) for branch in stmt.parallel.branches]
             )
         elif isinstance(stmt, IfStatement):
-            # Evaluate cases in order (if/elif semantics). Execute first match.
-            for case in stmt.if_.cases:
-                if evaluate_condition(
-                    variables=self.variables,
-                    var=case.condition.var,
-                    op=case.condition.op,
-                    value=case.condition.value,
-                ):
+            # Evaluate in order and execute the first match (if/elif ladder)
+            for case in stmt.if_ladder.clauses:
+                if evaluate_condition_node(self.variables, case.condition):
                     await self.execute_statement(case.then)
                     return
-            # No case matched; execute else if present
-            if stmt.if_.else_ is not None:
-                await self.execute_statement(stmt.if_.else_)
+            if stmt.if_ladder.else_ is not None:
+                await self.execute_statement(stmt.if_ladder.else_)

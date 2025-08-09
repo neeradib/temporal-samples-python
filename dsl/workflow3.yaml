@@ -21,8 +21,8 @@ root:
           arguments:
             - arg1
           result: result1
-      - if:
-          cases:
+      - if_ladder:
+          clauses:
             - condition: { var: result1, op: truthy }
               then:
                 activity:
@@ -40,8 +40,8 @@ root:
               name: activity5
               arguments: [arg3, result1]
               result: result5
-      - if:
-          cases:
+      - if_ladder:
+          clauses:
             - condition: { var: result1, op: truthy }
               then:
                 activity:

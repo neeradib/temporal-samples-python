@@ -1,0 +1,56 @@
+# Demonstrates complex boolean conditions with all/any/not in IfStatements.
+
+variables:
+  arg1: value1
+  arg2: value2
+  flagA: true
+  flagB: false
+  mode: pro
+
+root:
+  sequence:
+    elements:
+      - activity:
+          name: activity1
+          arguments: [arg1]
+          result: result1
+      - if_ladder:
+          clauses:
+            - condition:
+                all:
+                  - { var: flagA, op: truthy }
+                  - { var: mode, op: in, value: [pro, enterprise] }
+              then:
+                activity:
+                  name: activity2
+                  arguments: [result1]
+                  result: result2
+            - condition:
+                any:
+                  - { var: flagB, op: truthy }
+                  - { var: mode, op: eq, value: beta }
+              then:
+                activity:
+                  name: activity4
+                  arguments: [result1]
+                  result: result4
+          else:
+            activity:
+              name: activity5
+              arguments: [arg2, result1]
+              result: result5
+      - if_ladder:
+          clauses:
+            - condition:
+                not: { var: result2, op: truthy }
+              then:
+                activity:
+                  name: activity3
+                  arguments: [arg2, result1]
+                  result: combined
+          else:
+            activity:
+              name: activity3
+              arguments: [arg2, result2]
+              result: combined
+
